@@ -1,0 +1,157 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Recipes API — AWS SAM template (Micronaut).
+  Defines the Lambda function and API Gateway routes for local testing and AWS deployment.
+  Local testing: sam local start-api (requires Docker).
+  Build first with: mvn clean package -DskipTests (Maven 'local' profile must NOT be active).
+
+# Globals apply to all Functions in this template unless overridden per resource.
+Globals:
+  Function:
+    # Must match the Java version in pom.xml (<maven.compiler.release>17</maven.compiler.release>).
+    Runtime: java17
+
+    # Micronaut cold starts are significantly faster than Spring Boot (~5-10s vs ~60s)
+    # because DI metadata is generated at compile time (no runtime classpath scanning).
+    # 512 MB is sufficient; increase only if OOM errors appear under load.
+    MemorySize: 512
+
+    # Lower than the Spring Boot equivalent — Micronaut initialises much faster.
+    # Still generous enough to accommodate Docker startup on the first SAM local request.
+    Timeout: 30
+
+    Environment:
+      Variables:
+        # Resolved at deploy time to the actual DynamoDB table name.
+        RECIPES_TABLE_NAME: !Ref RecipesTable
+        # Empty in production — overridden in env.json for local testing against DynamoDB Local.
+        DYNAMODB_ENDPOINT: ""
+
+Resources:
+  ListRecipesFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      Handler: com.recipes.api.handler.ListRecipesHandler
+      CodeUri: ./
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RecipesTable
+      Events:
+        ListRecipes:
+          Type: Api
+          Properties:
+            Path: /recipes
+            Method: GET
+
+  GetRecipeByIdFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      Handler: com.recipes.api.handler.GetRecipeByIdHandler
+      CodeUri: ./
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RecipesTable
+      Events:
+        GetRecipeById:
+          Type: Api
+          Properties:
+            Path: /recipes/{id}
+            Method: GET
+
+  CreateRecipeFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      Handler: com.recipes.api.handler.CreateRecipeHandler
+      CodeUri: ./
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RecipesTable
+      Events:
+        CreateRecipe:
+          Type: Api
+          Properties:
+            Path: /recipes
+            Method: POST
+
+  ImportRecipesFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      Handler: com.recipes.api.handler.ImportRecipesHandler
+      CodeUri: ./
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Sub "recipes-import-${AWS::AccountId}-${AWS::Region}"
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RecipesTable
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt RecipesImportDLQ.QueueName
+      EventInvokeConfig:
+        MaximumRetryAttempts: 2
+        DestinationConfig:
+          OnFailure:
+            Type: SQS
+            Destination: !GetAtt RecipesImportDLQ.Arn
+
+  # Grants S3 permission to invoke ImportRecipesFunction.
+  # The bucket notification is configured post-deploy via the Makefile (make configure-s3-trigger).
+  # SAM's Type:S3 event cannot be used here — it creates a circular dependency when the
+  # bucket is defined in the same template.
+  ImportRecipesFunctionS3Permission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ImportRecipesFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+      SourceArn: !Sub "arn:aws:s3:::recipes-import-${AWS::AccountId}-${AWS::Region}"
+
+  RecipesImportBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "recipes-import-${AWS::AccountId}-${AWS::Region}"
+
+  RecipesImportDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "recipes-import-dlq-${AWS::StackName}"
+      MessageRetentionPeriod: 1209600  # 14 days (SQS max)
+
+  RecipesTable:
+    Type: AWS::DynamoDB::Table
+    # Retain ensures the table and its data survive a stack deletion (important in production).
+    DeletionPolicy: Retain
+    Properties:
+      TableName: Recipes
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+Outputs:
+  RecipesApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+  RecipesTableName:
+    Description: DynamoDB table name
+    Value: !Ref RecipesTable
+  RecipesImportBucketName:
+    Description: S3 bucket for bulk recipe imports
+    Value: !Ref RecipesImportBucket
+  ImportRecipesFunctionArn:
+    Description: ARN of the ImportRecipes Lambda function
+    Value: !GetAtt ImportRecipesFunction.Arn
+  RecipesImportDLQUrl:
+    Description: URL of the DLQ for failed recipe imports
+    Value: !Ref RecipesImportDLQ

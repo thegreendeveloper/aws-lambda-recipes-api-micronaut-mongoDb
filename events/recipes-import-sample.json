@@ -1,0 +1,108 @@
+[
+  {
+    "name": "Pasta Carbonara",
+    "cuisine": "Italian",
+    "prepTimeMinutes": 20,
+    "ingredients": [
+      "200g spaghetti",
+      "100g pancetta",
+      "2 eggs",
+      "50g parmesan",
+      "black pepper"
+    ],
+    "steps": [
+      "Boil pasta",
+      "Fry pancetta",
+      "Whisk eggs and parmesan",
+      "Combine off heat",
+      "Season with pepper"
+    ]
+  },
+  {
+    "name": "Chicken Tikka Masala",
+    "cuisine": "Indian",
+    "prepTimeMinutes": 45,
+    "ingredients": [
+      "500g chicken breast",
+      "200ml coconut cream",
+      "400g tinned tomatoes",
+      "2 tbsp tikka paste",
+      "1 onion",
+      "garlic",
+      "ginger"
+    ],
+    "steps": [
+      "Marinate chicken in tikka paste",
+      "Grill chicken",
+      "Fry onion, garlic and ginger",
+      "Add tomatoes and cream",
+      "Simmer 20 minutes",
+      "Add chicken and serve"
+    ]
+  },
+  {
+    "name": "Beef Tacos",
+    "cuisine": "Mexican",
+    "prepTimeMinutes": 25,
+    "ingredients": [
+      "400g beef mince",
+      "8 taco shells",
+      "1 onion",
+      "2 tsp cumin",
+      "1 tsp paprika",
+      "lettuce",
+      "cheddar",
+      "sour cream",
+      "salsa"
+    ],
+    "steps": [
+      "Brown mince with onion",
+      "Add spices and cook 5 minutes",
+      "Fill taco shells",
+      "Top with lettuce, cheese, sour cream and salsa"
+    ]
+  },
+  {
+    "name": "Greek Salad",
+    "cuisine": "Greek",
+    "prepTimeMinutes": 10,
+    "ingredients": [
+      "2 tomatoes",
+      "1 cucumber",
+      "100g feta",
+      "1 red onion",
+      "olives",
+      "olive oil",
+      "oregano"
+    ],
+    "steps": [
+      "Chop tomatoes, cucumber and onion",
+      "Combine in bowl",
+      "Add olives and feta",
+      "Drizzle with olive oil",
+      "Sprinkle oregano"
+    ]
+  },
+  {
+    "name": "Sushi Rolls",
+    "cuisine": "Japanese",
+    "prepTimeMinutes": 60,
+    "ingredients": [
+      "300g sushi rice",
+      "4 nori sheets",
+      "200g salmon",
+      "1 avocado",
+      "cucumber",
+      "soy sauce",
+      "wasabi"
+    ],
+    "steps": [
+      "Cook and season sushi rice",
+      "Lay nori on bamboo mat",
+      "Spread rice over nori",
+      "Add salmon, avocado and cucumber",
+      "Roll tightly",
+      "Slice and serve with soy sauce and wasabi"
+    ]
+  }
+]
