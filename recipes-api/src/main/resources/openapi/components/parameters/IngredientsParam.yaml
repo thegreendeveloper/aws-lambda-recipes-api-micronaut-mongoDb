@@ -1,0 +1,10 @@
+IngredientsParam:
+  name: ingredients
+  in: query
+  required: false
+  description: >
+    Comma-separated list of ingredients to filter by.
+    All supplied ingredients must be present in the recipe (AND match).
+    Example: ?ingredients=tomato,garlic
+  schema:
+    type: string

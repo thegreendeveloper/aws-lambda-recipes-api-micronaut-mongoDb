@@ -13,8 +13,10 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -47,6 +49,18 @@ class ListRecipesHandlerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(200);
         assertThat(response.getBody()).isEqualTo("[]");
+    }
+
+    @Test
+    void returnsFilteredResultsWhenIngredientsParamProvided() {
+        when(service.findRecipesByIngredients(eq(List.of("tomato", "garlic")))).thenReturn(List.of(buildSummary()));
+        APIGatewayProxyRequestEvent request = new APIGatewayProxyRequestEvent();
+        request.setQueryStringParameters(Map.of("ingredients", "tomato, garlic"));
+
+        APIGatewayProxyResponseEvent response = handler.execute(request);
+
+        assertThat(response.getStatusCode()).isEqualTo(200);
+        assertThat(response.getBody()).contains("Pasta");
     }
 
     @Test

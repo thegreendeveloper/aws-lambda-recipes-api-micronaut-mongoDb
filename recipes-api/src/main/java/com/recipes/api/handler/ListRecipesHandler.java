@@ -10,7 +10,10 @@ import com.recipes.api.service.RecipesService;
 import io.micronaut.function.aws.MicronautRequestHandler;
 import jakarta.inject.Inject;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 public class ListRecipesHandler
         extends MicronautRequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
@@ -24,14 +27,29 @@ public class ListRecipesHandler
     @Override
     public APIGatewayProxyResponseEvent execute(APIGatewayProxyRequestEvent input) {
         try {
-            return LambdaResponseBuilder.build(200, objectMapper.writeValueAsString(buildSummaryResponses()));
+            List<RecipeSummary> summaries = parseIngredients(input)
+                    .map(service::findRecipesByIngredients)
+                    .orElseGet(service::listRecipes);
+            return LambdaResponseBuilder.build(200, objectMapper.writeValueAsString(buildSummaryResponses(summaries)));
         } catch (Exception e) {
             return LambdaResponseBuilder.error(objectMapper, 500, "Internal server error");
         }
     }
 
-    private List<RecipeSummaryResponse> buildSummaryResponses() {
-        return service.listRecipes().stream()
+    private Optional<List<String>> parseIngredients(APIGatewayProxyRequestEvent input) {
+        Map<String, String> queryParams = input.getQueryStringParameters();
+        if (queryParams == null) {
+            return Optional.empty();
+        }
+        String param = queryParams.get("ingredients");
+        if (param == null || param.isBlank()) {
+            return Optional.empty();
+        }
+        return Optional.of(Arrays.stream(param.split(",")).map(String::trim).toList());
+    }
+
+    private List<RecipeSummaryResponse> buildSummaryResponses(List<RecipeSummary> summaries) {
+        return summaries.stream()
                 .map(this::toSummaryResponse)
                 .toList();
     }

@@ -3,7 +3,9 @@ collection:
     operationId: listRecipes
     tags:
       - Recipes
-    summary: List all recipes
+    summary: List all recipes, optionally filtered by ingredients
+    parameters:
+      - $ref: '../components/parameters/IngredientsParam.yaml#/IngredientsParam'
     responses:
       '200':
         description: List of recipe summaries

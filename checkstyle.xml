@@ -54,6 +54,9 @@
         <!-- ── No space after ( or before ): catches .method( arg) ── -->
         <module name="ParenPad"/>
 
+        <!-- ── Braces required on all if/else/for/while/do blocks ── -->
+        <module name="NeedBraces"/>
+
     </module>
 
     <!-- ── Max line length: 120 chars, imports and URLs excluded ── -->

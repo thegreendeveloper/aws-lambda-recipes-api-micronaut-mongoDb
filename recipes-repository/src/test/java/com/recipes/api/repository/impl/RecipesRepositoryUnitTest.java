@@ -1,23 +1,16 @@
 package com.recipes.api.repository.impl;
 
+import com.mongodb.client.FindIterable;
+import com.mongodb.client.MongoCollection;
 import com.recipes.api.model.RecipeEntity;
-import org.junit.jupiter.api.BeforeEach;
+import org.bson.conversions.Bson;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
-import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
-import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
-import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -28,22 +21,19 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class RecipesRepositoryUnitTest {
 
-    private static final String TABLE_NAME = "Recipes";
     private static final String RECIPE_ID = "abc";
 
     @Mock
-    private DynamoDbClient dynamoDbClient;
+    private MongoCollection<RecipeEntity> collection;
 
-    private DynamoDbRecipesRepository repository;
+    @Mock
+    private FindIterable<RecipeEntity> findIterable;
 
-    @BeforeEach
-    void setUp() {
-        repository = new DynamoDbRecipesRepository(dynamoDbClient, TABLE_NAME);
-    }
+    @InjectMocks
+    private MongoDbRecipesRepository repository;
 
     @Test
     void saveAssignsUuidToRecipe() {
-        stubPutItem();
         RecipeEntity entity = buildTestEntity();
 
         RecipeEntity saved = repository.save(entity);
@@ -52,25 +42,22 @@ class RecipesRepositoryUnitTest {
     }
 
     @Test
-    void saveWritesCorrectAttributesToDynamo() {
-        stubPutItem();
-        ArgumentCaptor<PutItemRequest> captor = ArgumentCaptor.forClass(PutItemRequest.class);
+    void saveCallsInsertOneWithEntity() {
+        RecipeEntity entity = buildTestEntity();
 
-        repository.save(buildTestEntity());
+        repository.save(entity);
 
-        verify(dynamoDbClient).putItem(captor.capture());
-        Map<String, AttributeValue> item = captor.getValue().item();
-        assertThat(captor.getValue().tableName()).isEqualTo(TABLE_NAME);
-        assertThat(item.get("name").s()).isEqualTo("Pasta");
-        assertThat(item.get("cuisine").s()).isEqualTo("Italian");
-        assertThat(item.get("prepTimeMinutes").n()).isEqualTo("20");
+        verify(collection).insertOne(entity);
     }
 
     @Test
-    void findByIdReturnsRecipeWhenItemExists() {
-        when(dynamoDbClient.getItem(any(GetItemRequest.class))).thenReturn(buildGetItemResponse());
+    void findByIdReturnsRecipeWhenEntityExists() {
+        RecipeEntity expected = buildTestEntity();
+        expected.setId(RECIPE_ID);
+        when(collection.find(any(Bson.class))).thenReturn(findIterable);
+        when(findIterable.first()).thenReturn(expected);
 
-        Optional<RecipeEntity> result = repository.findById("abc");
+        Optional<RecipeEntity> result = repository.findById(RECIPE_ID);
 
         assertThat(result).isPresent();
         assertThat(result.get().getName()).isEqualTo("Pasta");
@@ -78,9 +65,9 @@ class RecipesRepositoryUnitTest {
     }
 
     @Test
-    void findByIdReturnsEmptyWhenItemDoesNotExist() {
-        when(dynamoDbClient.getItem(any(GetItemRequest.class)))
-                .thenReturn(GetItemResponse.builder().build());
+    void findByIdReturnsEmptyWhenEntityDoesNotExist() {
+        when(collection.find(any(Bson.class))).thenReturn(findIterable);
+        when(findIterable.first()).thenReturn(null);
 
         Optional<RecipeEntity> result = repository.findById("not-found");
 
@@ -89,7 +76,13 @@ class RecipesRepositoryUnitTest {
 
     @Test
     void findAllReturnsMappedRecipes() {
-        when(dynamoDbClient.scan(any(ScanRequest.class))).thenReturn(buildScanResponse());
+        RecipeEntity expected = buildTestEntity();
+        when(collection.find()).thenReturn(findIterable);
+        when(findIterable.into(any())).thenAnswer(inv -> {
+            List<RecipeEntity> list = inv.getArgument(0);
+            list.add(expected);
+            return list;
+        });
 
         List<RecipeEntity> results = repository.findAll();
 
@@ -97,8 +90,20 @@ class RecipesRepositoryUnitTest {
         assertThat(results.get(0).getName()).isEqualTo("Pasta");
     }
 
-    private void stubPutItem() {
-        when(dynamoDbClient.putItem(any(PutItemRequest.class))).thenReturn(PutItemResponse.builder().build());
+    @Test
+    void findByIngredientsReturnsMatchingRecipes() {
+        RecipeEntity expected = buildTestEntity();
+        when(collection.find(any(Bson.class))).thenReturn(findIterable);
+        when(findIterable.into(any())).thenAnswer(inv -> {
+            List<RecipeEntity> list = inv.getArgument(0);
+            list.add(expected);
+            return list;
+        });
+
+        List<RecipeEntity> results = repository.findByIngredients(List.of("pasta", "sauce"));
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).getName()).isEqualTo("Pasta");
     }
 
     private RecipeEntity buildTestEntity() {
@@ -109,28 +114,5 @@ class RecipesRepositoryUnitTest {
                 .ingredients(List.of("pasta", "sauce"))
                 .steps(List.of("boil", "mix"))
                 .build();
-    }
-
-    private GetItemResponse buildGetItemResponse() {
-        return GetItemResponse.builder()
-                .item(buildFakeAttributeMap())
-                .build();
-    }
-
-    private ScanResponse buildScanResponse() {
-        return ScanResponse.builder()
-                .items(List.of(buildFakeAttributeMap()))
-                .build();
-    }
-
-    private Map<String, AttributeValue> buildFakeAttributeMap() {
-        return Map.of(
-                "id", AttributeValue.fromS(RecipesRepositoryUnitTest.RECIPE_ID),
-                "name", AttributeValue.fromS("Pasta"),
-                "cuisine", AttributeValue.fromS("Italian"),
-                "prepTimeMinutes", AttributeValue.fromN("20"),
-                "ingredients", AttributeValue.fromL(List.of(AttributeValue.fromS("pasta"))),
-                "steps", AttributeValue.fromL(List.of(AttributeValue.fromS("boil")))
-        );
     }
 }

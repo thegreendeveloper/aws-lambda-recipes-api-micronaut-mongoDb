@@ -3,7 +3,7 @@
 ## Purpose
 
 A reference project demonstrating a true serverless microservice setup on AWS:
-one Lambda function per endpoint, API Gateway for routing, and DynamoDB as the data store.
+one Lambda function per endpoint, API Gateway for routing, and MongoDB Atlas as the data store.
 The focus is on project structure and separation of concerns across Lambda functions.
 
 The project follows a spec-first approach — the OpenAPI spec drives model generation — though
@@ -18,7 +18,7 @@ Multi-module Maven project:
 
 | Module               | Artifact             | Purpose                                   |
 |----------------------|----------------------|-------------------------------------------|
-| `recipes-repository` | `recipes-repository` | DynamoDB entity + repository              |
+| `recipes-repository` | `recipes-repository` | MongoDB entity + repository               |
 | `recipes-service`    | `recipes-service`    | Business logic, domain models, exceptions |
 | `recipes-api`        | `recipes-api-rest`   | Lambda handlers, OpenAPI spec, fat JAR    |
 
@@ -36,17 +36,20 @@ exclusively via SAM CLI, which emulates the Lambda runtime in Docker.
 - [SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html)
   installed
 
-### Start local DynamoDB
+### Start local MongoDB
 
-A `docker-compose.yml` is included that starts DynamoDB Local and creates the `Recipes` table:
+A `docker-compose.yml` is included that starts a local MongoDB 7 instance:
 
 ```bash
-docker compose up
+docker compose up -d
 ```
+
+Data is persisted in a named Docker volume (`recipes-mongo-data`) — it survives container restarts.
+Use `docker compose down -v` to wipe the volume and start fresh.
 
 ### Start local API
 
-In a second terminal, after DynamoDB is running:
+In a second terminal, after MongoDB is running:
 
 ```bash
 sam build
@@ -72,6 +75,9 @@ first, then attach.
 ```bash
 # List recipes
 curl http://localhost:3000/recipes
+
+# Filter by ingredients (ALL must match)
+curl "http://localhost:3000/recipes?ingredients=tomato,garlic"
 
 # Get recipe by ID
 curl http://localhost:3000/recipes/{id}
@@ -113,18 +119,57 @@ a private method with a descriptive name.
 Extract the builder/stream call into a private method named after what it does, and call that method from the public
 one.
 
+### Prefer Optional over if/else for nullable branching
+
+When a value may or may not be present and drives a decision, use `Optional` to express the
+branch as a pipeline rather than an imperative if/else block. This keeps the calling method
+linear and readable.
+
+**Avoid:**
+
+```java
+String param = queryParams != null ? queryParams.get("x") : null;
+if(param !=null&&!param.
+
+isBlank()){
+result =
+
+doSomethingWith(parse(param));
+        }else{
+result =
+
+doDefault();
+}
+```
+
+**Prefer:**
+
+```java
+result =
+
+parseX(input)          // returns Optional<T>
+        .
+
+map(this::doSomethingWith)
+        .
+
+orElseGet(this::doDefault);
+```
+
+Extract the parsing/resolution logic into a private method that returns `Optional<T>`.
+The `execute` method should read as a linear pipeline with no branching.
+
 ## Known limitations
 
 ### No integration tests for `RecipesRepository`
 
-Integration tests using Testcontainers (to spin up `amazon/dynamodb-local` in Docker) were
-attempted but could not be made to work on Docker Desktop 4.67.0 on Windows. Both the TCP proxy
-(`localhost:2375`) and the named pipe (`//./pipe/docker_engine`) return HTTP 400 for the Docker
-`/info` call that Testcontainers uses to validate the connection, even though the Docker daemon
-itself is healthy and the Docker CLI works normally.
+Integration tests using Testcontainers (to spin up a real MongoDB instance in Docker) are not
+yet in place. Testcontainers had connectivity issues on Docker Desktop 4.67.0 on Windows — both
+the TCP proxy (`localhost:2375`) and the named pipe (`//./pipe/docker_engine`) return HTTP 400
+for the Docker `/info` call that Testcontainers uses to validate the connection.
 
-The unit tests in `RecipesRepositoryUnitTest` cover the mapping logic and SDK call verification
-via Mockito mocks. If integration tests are needed in future, consider:
+The unit tests in `RecipesRepositoryUnitTest` cover the logic via Mockito mocks on
+`MongoCollection<RecipeEntity>`. If integration tests are needed in future, consider:
 
 - Installing [Testcontainers Desktop](https://testcontainers.com/desktop/) which provides a
   bridge service that resolves this Docker Desktop compatibility issue

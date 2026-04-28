@@ -5,9 +5,9 @@ import com.recipes.api.model.RecipeDetail;
 import com.recipes.api.model.RecipeEntity;
 import com.recipes.api.model.RecipeSummary;
 import com.recipes.api.repository.RecipesRepository;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -26,12 +26,8 @@ class RecipesServiceUnitTest {
     @Mock
     private RecipesRepository repository;
 
+    @InjectMocks
     private RecipesService service;
-
-    @BeforeEach
-    void setUp() {
-        service = new RecipesService(repository);
-    }
 
     @Test
     void listRecipesReturnsMappedSummaries() {
@@ -73,6 +69,17 @@ class RecipesServiceUnitTest {
         when(repository.findById("missing")).thenReturn(Optional.empty());
 
         assertThrows(RecipeNotFoundException.class, () -> service.getRecipeById("missing"));
+    }
+
+    @Test
+    void findRecipesByIngredientsDelegatesToRepository() {
+        when(repository.findByIngredients(List.of("pasta", "sauce")))
+                .thenReturn(List.of(buildTestEntity("abc")));
+
+        List<RecipeSummary> result = service.findRecipesByIngredients(List.of("pasta", "sauce"));
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getId()).isEqualTo("abc");
     }
 
     @Test
