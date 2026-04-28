@@ -1,10 +1,10 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
-  Recipes API — AWS SAM template (Micronaut).
-  Defines the Lambda function and API Gateway routes for local testing and AWS deployment.
+  Recipes API — AWS SAM template (Micronaut + MongoDB Atlas).
+  Defines the Lambda functions and API Gateway routes for local testing and AWS deployment.
   Local testing: sam local start-api (requires Docker).
-  Build first with: mvn clean package -DskipTests (Maven 'local' profile must NOT be active).
+  Build first with: mvn clean package -DskipTests.
 
 # Globals apply to all Functions in this template unless overridden per resource.
 Globals:
@@ -23,10 +23,10 @@ Globals:
 
     Environment:
       Variables:
-        # Resolved at deploy time to the actual DynamoDB table name.
-        RECIPES_TABLE_NAME: !Ref RecipesTable
-        # Empty in production — overridden in env.json for local testing against DynamoDB Local.
-        DYNAMODB_ENDPOINT: ""
+        # MongoDB Atlas connection string — set via SSM or environment-specific config.
+        # Overridden in env.json for local testing against a local MongoDB instance.
+        MONGODB_URI: ""
+        MONGODB_DATABASE: "recipes"
 
 Resources:
   ListRecipesFunction:
@@ -36,9 +36,6 @@ Resources:
     Properties:
       Handler: com.recipes.api.handler.ListRecipesHandler
       CodeUri: ./
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref RecipesTable
       Events:
         ListRecipes:
           Type: Api
@@ -53,9 +50,6 @@ Resources:
     Properties:
       Handler: com.recipes.api.handler.GetRecipeByIdHandler
       CodeUri: ./
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref RecipesTable
       Events:
         GetRecipeById:
           Type: Api
@@ -70,9 +64,6 @@ Resources:
     Properties:
       Handler: com.recipes.api.handler.CreateRecipeHandler
       CodeUri: ./
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref RecipesTable
       Events:
         CreateRecipe:
           Type: Api
@@ -90,8 +81,6 @@ Resources:
       Policies:
         - S3ReadPolicy:
             BucketName: !Sub "recipes-import-${AWS::AccountId}-${AWS::Region}"
-        - DynamoDBCrudPolicy:
-            TableName: !Ref RecipesTable
         - SQSSendMessagePolicy:
             QueueName: !GetAtt RecipesImportDLQ.QueueName
       EventInvokeConfig:
@@ -103,8 +92,6 @@ Resources:
 
   # Grants S3 permission to invoke ImportRecipesFunction.
   # The bucket notification is configured post-deploy via the Makefile (make configure-s3-trigger).
-  # SAM's Type:S3 event cannot be used here — it creates a circular dependency when the
-  # bucket is defined in the same template.
   ImportRecipesFunctionS3Permission:
     Type: AWS::Lambda::Permission
     Properties:
@@ -125,27 +112,10 @@ Resources:
       QueueName: !Sub "recipes-import-dlq-${AWS::StackName}"
       MessageRetentionPeriod: 1209600  # 14 days (SQS max)
 
-  RecipesTable:
-    Type: AWS::DynamoDB::Table
-    # Retain ensures the table and its data survive a stack deletion (important in production).
-    DeletionPolicy: Retain
-    Properties:
-      TableName: Recipes
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: id
-          AttributeType: S
-      KeySchema:
-        - AttributeName: id
-          KeyType: HASH
-
 Outputs:
   RecipesApiEndpoint:
     Description: API Gateway endpoint URL
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
-  RecipesTableName:
-    Description: DynamoDB table name
-    Value: !Ref RecipesTable
   RecipesImportBucketName:
     Description: S3 bucket for bulk recipe imports
     Value: !Ref RecipesImportBucket

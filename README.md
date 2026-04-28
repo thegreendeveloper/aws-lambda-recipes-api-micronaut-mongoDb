@@ -1,7 +1,7 @@
 # Recipes API — Micronaut on AWS Lambda
 
 A spec-first REST API built with Micronaut, structured as microservices — one Lambda function per endpoint — behind API
-Gateway, with DynamoDB as the data store.
+Gateway, with MongoDB Atlas as the data store.
 
 ## Prerequisites
 
@@ -22,13 +22,16 @@ sam local start-api
 
 The API is available at `http://localhost:3000`.
 
-### Start local DynamoDB
+### Start local MongoDB
 
-A `docker-compose.yml` is included that starts DynamoDB Local and creates the `Recipes` table:
+A `docker-compose.yml` is included that starts a local MongoDB 7 instance:
 
 ```bash
-docker compose up
+docker compose up -d
 ```
+
+Data is persisted in a named Docker volume (`recipes-mongo-data`) and survives container restarts.
+Use `docker compose down -v` to wipe the volume and start fresh.
 
 Then in a second terminal:
 
@@ -62,11 +65,12 @@ your breakpoints.
 
 ### Endpoints
 
-| Method | Path            | Description        |
-|--------|-----------------|--------------------|
-| `GET`  | `/recipes`      | List all recipes   |
-| `GET`  | `/recipes/{id}` | Get a recipe by ID |
-| `POST` | `/recipes`      | Create a recipe    |
+| Method | Path                                 | Description                                 |
+|--------|--------------------------------------|---------------------------------------------|
+| `GET`  | `/recipes`                           | List all recipes                            |
+| `GET`  | `/recipes?ingredients=tomato,garlic` | Filter recipes (ALL ingredients must match) |
+| `GET`  | `/recipes/{id}`                      | Get a recipe by ID                          |
+| `POST` | `/recipes`                           | Create a recipe                             |
 
 ### Example requests
 
@@ -74,8 +78,11 @@ your breakpoints.
 # List all recipes
 curl http://localhost:3000/recipes
 
+# Filter by ingredients (ALL must be present in the recipe)
+curl "http://localhost:3000/recipes?ingredients=pasta,garlic"
+
 # Get by ID
-curl http://localhost:3000/recipes/1
+curl http://localhost:3000/recipes/{id}
 
 # Create
 curl -X POST http://localhost:3000/recipes \
@@ -189,15 +196,14 @@ Then:
 sam delete
 ```
 
-> **Note:** The DynamoDB table has `DeletionPolicy: Retain` — it survives `sam delete` and keeps its data. If you want a
-> clean redeploy, manually delete the `Recipes` table from the DynamoDB console before running `sam deploy` again,
-> otherwise CloudFormation will fail trying to create a table that already exists.
+> **Note:** `sam delete` removes all stack resources. Your MongoDB Atlas data is unaffected — it lives outside AWS and
+> must be managed separately via the Atlas console.
 
 ## Project structure
 
 ```
-recipes-repository/   DynamoDB entity + repository
+recipes-repository/   MongoDB entity + repository
 recipes-service/      Business logic + domain models
 recipes-api/          Lambda handlers + OpenAPI spec + fat JAR
-template.yaml         SAM template (3 Lambda functions + API Gateway + DynamoDB)
+template.yaml         SAM template (Lambda functions + API Gateway)
 ```

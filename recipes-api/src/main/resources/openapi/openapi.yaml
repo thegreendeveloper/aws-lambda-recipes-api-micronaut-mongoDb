@@ -20,6 +20,8 @@ components:
   parameters:
     RecipeIdParam:
       $ref: './components/parameters/RecipeIdParam.yaml#/RecipeIdParam'
+    IngredientsParam:
+      $ref: './components/parameters/IngredientsParam.yaml#/IngredientsParam'
   responses:
     NotFound:
       $ref: './components/responses/NotFound.yaml#/NotFound'

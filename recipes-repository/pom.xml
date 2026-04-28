@@ -42,16 +42,11 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- AWS SDK v2 — DynamoDB client (version managed by Micronaut Platform BOM) -->
+        <!-- MongoDB synchronous driver — no Netty, appropriate for synchronous Lambda -->
         <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>dynamodb</artifactId>
-        </dependency>
-
-        <!-- URL connection HTTP client — avoids Netty, appropriate for synchronous Lambda -->
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>url-connection-client</artifactId>
+            <groupId>org.mongodb</groupId>
+            <artifactId>mongodb-driver-sync</artifactId>
+            <version>5.1.4</version>
         </dependency>
 
         <!-- Test -->

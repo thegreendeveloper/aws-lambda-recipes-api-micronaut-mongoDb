@@ -5,6 +5,7 @@ import com.recipes.api.model.RecipeDetail;
 import com.recipes.api.model.RecipeEntity;
 import com.recipes.api.model.RecipeSummary;
 import com.recipes.api.repository.RecipesRepository;
+import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 
 import java.util.List;
@@ -12,11 +13,8 @@ import java.util.List;
 @Singleton
 public class RecipesService {
 
-    private final RecipesRepository repository;
-
-    public RecipesService(RecipesRepository repository) {
-        this.repository = repository;
-    }
+    @Inject
+    private RecipesRepository repository;
 
     public List<RecipeSummary> listRecipes() {
         return repository.findAll().stream()
@@ -28,6 +26,12 @@ public class RecipesService {
         return repository.findById(id)
                 .map(this::toDetail)
                 .orElseThrow(() -> new RecipeNotFoundException(id));
+    }
+
+    public List<RecipeSummary> findRecipesByIngredients(List<String> ingredients) {
+        return repository.findByIngredients(ingredients).stream()
+                .map(this::toSummary)
+                .toList();
     }
 
     public RecipeDetail createRecipe(String name, String cuisine, int prepTimeMinutes,

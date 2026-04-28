@@ -11,4 +11,6 @@ public interface RecipesRepository {
     Optional<RecipeEntity> findById(String id);
 
     RecipeEntity save(RecipeEntity entity);
+
+    List<RecipeEntity> findByIngredients(List<String> ingredients);
 }
