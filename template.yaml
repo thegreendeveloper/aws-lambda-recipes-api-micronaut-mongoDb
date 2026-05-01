@@ -26,7 +26,7 @@ Globals:
         # MongoDB Atlas connection string — set via SSM or environment-specific config.
         # Overridden in env.json for local testing against a local MongoDB instance.
         MONGODB_URI: ""
-        MONGODB_DATABASE: "recipes"
+        MONGODB_DATABASE: "recipes_service"
 
 Resources:
   ListRecipesFunction:

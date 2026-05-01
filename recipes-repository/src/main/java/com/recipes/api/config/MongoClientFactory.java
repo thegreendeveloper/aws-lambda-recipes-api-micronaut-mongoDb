@@ -18,9 +18,6 @@ public class MongoClientFactory {
     @Singleton
     public MongoClient mongoClient() {
         String uri = System.getenv("MONGODB_URI");
-        // MongoDB sync driver establishes connections lazily, so a missing/unreachable URI
-        // only fails at query time — not at construction. Fallback keeps unit tests (which
-        // mock the service layer and never reach Mongo) from failing at DI startup.
         return MongoClients.create(uri != null && !uri.isBlank() ? uri : "mongodb://localhost:27017");
     }
 
@@ -29,7 +26,7 @@ public class MongoClientFactory {
         CodecRegistry pojoCodecRegistry = CodecRegistries.fromRegistries(
                 MongoClientSettings.getDefaultCodecRegistry(),
                 CodecRegistries.fromProviders(PojoCodecProvider.builder().automatic(true).build()));
-        String db = System.getenv().getOrDefault("MONGODB_DATABASE", "recipes");
+        String db = System.getenv().getOrDefault("MONGODB_DATABASE", "recipes_service");
         return client.getDatabase(db).withCodecRegistry(pojoCodecRegistry);
     }
 
