@@ -53,22 +53,26 @@ In a second terminal, after MongoDB is running:
 
 ```bash
 sam build
-sam local start-api --env-vars env.json
+sam local start-api
 ```
 
 API is available at `http://localhost:3000`.
+
+`samconfig.toml` supplies `--env-vars env.json` and `--docker-network recipes-network` automatically.
+The Docker network lets Lambda containers resolve `recipes-mongodb` (the MongoDB service name) directly,
+without relying on `host.docker.internal`.
 
 > `sam local start-api` runs entirely in Docker — no AWS calls, no cost.
 
 ### Debug with IntelliJ
 
 ```bash
-sam local start-api --debug-port 5858 --debug-args "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5858"
+sam local start-api --debug-port 5858 --debug-args "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5858"
 ```
 
 Create a **Remote JVM Debug** run configuration in IntelliJ (`Run → Edit Configurations → + → Remote JVM Debug`) with
-host `localhost` and port `5858`. With `suspend=y` the container pauses until the debugger attaches — send a request
-first, then attach.
+host `localhost` and port `5858`. The JVM starts immediately and processes requests normally; it only pauses at
+breakpoints you set in IntelliJ. Attach the debugger whenever you need it — requests flow regardless.
 
 ### Example requests
 
@@ -110,6 +114,11 @@ Each extends `MicronautRequestHandler<APIGatewayProxyRequestEvent, APIGatewayPro
 injects `RecipesService` via Micronaut DI, and handles its own error mapping.
 
 ## Coding conventions
+
+### No inline comments
+
+Do not write inline comments (`//` or `/* */`) in Java code. Javadoc (`/** */`) on public types and methods is the only
+exception. Code should be self-explanatory through naming alone.
 
 ### Extract complex chains into named methods
 

@@ -23,9 +23,15 @@ services:
     ports:
       - "27017:27017"
     environment:
-      MONGO_INITDB_DATABASE: recipes
+      MONGO_INITDB_DATABASE: recipes_service
     volumes:
       - recipes-mongo-data:/data/db
+    networks:
+      - recipes-network
 
 volumes:
   recipes-mongo-data:
+
+networks:
+  recipes-network:
+    name: recipes-network

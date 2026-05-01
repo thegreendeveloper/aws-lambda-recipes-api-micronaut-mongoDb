@@ -23,10 +23,8 @@ Globals:
 
     Environment:
       Variables:
-        # MongoDB Atlas connection string — set via SSM or environment-specific config.
-        # Overridden in env.json for local testing against a local MongoDB instance.
-        MONGODB_URI: ""
-        MONGODB_DATABASE: "recipes"
+        MONGODB_URI: '{{resolve:ssm:/recipes-api/mongodb-uri}}'
+        MONGODB_DATABASE: "recipes_service"
 
 Resources:
   ListRecipesFunction:
@@ -89,17 +87,12 @@ Resources:
           OnFailure:
             Type: SQS
             Destination: !GetAtt RecipesImportDLQ.Arn
-
-  # Grants S3 permission to invoke ImportRecipesFunction.
-  # The bucket notification is configured post-deploy via the Makefile (make configure-s3-trigger).
-  ImportRecipesFunctionS3Permission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt ImportRecipesFunction.Arn
-      Action: lambda:InvokeFunction
-      Principal: s3.amazonaws.com
-      SourceAccount: !Ref AWS::AccountId
-      SourceArn: !Sub "arn:aws:s3:::recipes-import-${AWS::AccountId}-${AWS::Region}"
+      Events:
+        S3Upload:
+          Type: S3
+          Properties:
+            Bucket: !Ref RecipesImportBucket
+            Events: s3:ObjectCreated:*
 
   RecipesImportBucket:
     Type: AWS::S3::Bucket

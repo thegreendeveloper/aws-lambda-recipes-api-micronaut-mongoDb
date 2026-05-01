@@ -1,5 +1,9 @@
 version = 0.1
 
+[default.local_start_api.parameters]
+env_vars = "env.json"
+docker_network = "recipes-network"
+
 [default.deploy.parameters]
 stack_name = "aws-lambda-recipes-api-micronaut"
 resolve_s3 = true
